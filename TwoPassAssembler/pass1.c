@@ -1,75 +1,159 @@
-#include<stdio.h>
-#include<string.h>
-#include<stdlib.h>
-
-
-int main()
+#include <stdio.h>
+#include <string.h>
+void chk_label();
+void chk_opcode();
+void READ_LINE();
+struct optab
 {
-  char opcode[10],mnemonic[3],operand[10],label[10],code[10];
-  int locctr,start,length;
-  FILE *fp1,*fp2,*fp3,*fp4;
-  fp1=fopen("input.dat","r");
-  fp2=fopen("symtab.dat","w");
-  fp3=fopen("intermediate.dat","w");
-  fp4=fopen("optab.dat","r");
+  char code[10], objcode[10];
+} myoptab[3] = {
+    {"LDA", "00"},
+    {"JMP", "01"},
+    {"STA", "02"}};
 
-  // scan the first line (should be start)
-  fscanf(fp1,"%s%s%s",label,opcode,operand);
-  if(strcmp(opcode,"START")==0)
+struct symtab
+{
+  char symbol[10];
+  int addr;
+} mysymtab[10];
+
+int startaddr, locctr, symcount = 0, length;
+char line[20], label[8], opcode[8], operand[8], programname[10];
+
+void PASS1()
+{
+  FILE *input, *inter;
+  input = fopen("input.txt", "r");
+  inter = fopen("inter.txt", "w");
+  printf("LOCATION LABEL\tOPERAND\tOPCODE\n");
+  printf("_____________________________________");
+  fgets(line, 20, input);
+
+  READ_LINE();
+
+  if (!strcmp(opcode, "START"))
   {
-    start=atoi(operand);  // Get starting address
-    locctr=start; // set locctr as the starting address
-
-    //print to output and scan next line from input
-    fprintf(fp3,"%s\t%s\t%s\n",label,opcode,operand);
-    fscanf(fp1,"%s%s%s",label,opcode,operand);
+    startaddr = atoi(operand);
+    locctr = startaddr;
+    strcpy(programname, label);
+    fprintf(inter, "%s", line);
+    fgets(line, 20, input);
   }
   else
-    // No start opcode, take locctr as 0
-    locctr=0;
-
-
-  while(strcmp(opcode,"END")!=0)
   {
-    fprintf(fp3,"%d\t",locctr);
-    if(strcmp(label,"~")!=0)
-      fprintf(fp2,"%s\t%d\n",label,locctr);
+    programname[0] = '\0';
+    startaddr = 0;
+    locctr = 0;
+  }
+  printf("\n %d\t %s\t%s\t %s", locctr, label, opcode, operand);
 
-    rewind(fp4);  // goto beginning of file
-    fscanf(fp4,"%s",code);  // scan first code
-    while(strcmp(code,"END")!=0)  // check for end opcode
-    {
-      if(strcmp(opcode,code)==0)  // compare all opcodes
-      {
-        locctr+=3;  // 3 bytes
-        break;
-      }
-      fscanf(fp4,"%s",code);
-    }
-    if(strcmp(opcode,"WORD")==0)
-      locctr+=3;  // 1 word = 3 byte
-    else if(strcmp(opcode,"RESW")==0)
-      locctr+=(3*(atoi(operand)));  // n words
-    else if(strcmp(opcode,"RESB")==0)
-      locctr+=(atoi(operand));  // n bytes
-    else if(strcmp(opcode,"BYTE")==0)
-      ++locctr; // 1 byte
+  while (strcmp(line, "END") != 0)
+  {
 
-      //print to output and scan next line from input
-    fprintf(fp3,"%s\t%s\t%s\n",label,opcode,operand);
-    fscanf(fp1,"%s%s%s",label,opcode,operand);
+    READ_LINE();
+    printf("\n %d\t %s \t%s\t %s", locctr, label, opcode, operand);
+    if (label[0] != '\0')
+      chk_label();
+    chk_opcode();
+    fprintf(inter, "%s %s %s\n", label, opcode, operand);
+    fgets(line, 20, input);
   }
 
-  // END opcode
-  fprintf(fp3,"%d\t%s\t%s\t%s\n",locctr,label,opcode,operand);
-  length=locctr-start;
-  printf("The length of the program is %d",length);
+  printf("\n %d\t\t%s", locctr, line);
+  fprintf(inter, "%s", line);
 
-  fclose(fp1);
-  fclose(fp2);
-  fclose(fp3);
-  fclose(fp4);
+  fclose(inter);
+  fclose(input);
+}
 
-  getchar();
+void READ_LINE()
+{
+  char buff[8], word1[8], word2[8], word3[8];
+  int i, j = 0, count = 0;
+  label[0] = opcode[0] = operand[0] = word1[0] = word2[0] = word3[0] = '\0';
+  for (i = 0; line[i] != '\0'; i++)
+  {
+    if (line[i] != ' ')
+      buff[j++] = line[i];
+    else
+    {
+      buff[j] = '\0';
+      strcpy(word3, word2);
+      strcpy(word2, word1);
+      strcpy(word1, buff);
+      j = 0;
+      count++;
+    }
+  }
+  buff[j - 1] = '\0';
+  strcpy(word3, word2);
+  strcpy(word2, word1);
+  strcpy(word1, buff);
+  switch (count)
+  {
+  case 0:
+    strcpy(opcode, word1);
+    break;
+  case 1:
+  {
+    strcpy(opcode, word2);
+    strcpy(operand, word1);
+  }
+  break;
+  case 2:
+  {
+    strcpy(label, word3);
+    strcpy(opcode, word2);
+    strcpy(operand, word1);
+  }
+  break;
+  }
+}
+//======================================================
+void chk_label()
+{
+  int k, dupsym = 0;
+  for (k = 0; k < symcount; k++)
+    if (!strcmp(label, mysymtab[k].symbol))
+    {
+      mysymtab[k].addr = -1;
+      dupsym = 1;
+      break;
+    }
+  if (!dupsym)
+  {
+    strcpy(mysymtab[symcount].symbol, label);
+    mysymtab[symcount++].addr = locctr;
+  }
+}
+//  =====================================================
+void chk_opcode()
+{
+  int k = 0, found = 0;
+  for (k = 0; k < 3; k++)
+    if (!strcmp(opcode, myoptab[k].code))
+    {
+      locctr += 3;
+      found = 1;
+      break;
+    }
+  if (!found)
+  {
+    if (!strcmp(opcode, "WORD"))
+      locctr += 3;
+    else if (!strcmp(opcode, "RESW"))
+      locctr += (3 * atoi(operand));
+    else if (!strcmp(opcode, "RESB"))
+      locctr += atoi(operand);
+  }
+}
+
+//==================================================
+int main()
+{
+  PASS1();
+  length = locctr - startaddr;
+  printf("\n the length of program is %d", length);
+  getch();
   return 0;
 }

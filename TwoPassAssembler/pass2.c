@@ -1,126 +1,242 @@
-#include<stdio.h>
-#include<string.h>
-#include<stdlib.h>
-
-void strreverse(char* begin, char* end) {
-	char aux;
-	while(end>begin)
-		aux=*end, *end--=*begin, *begin++=aux;
-}
-void itoa(int value, char* str, int base) {
-	static char num[] = "0123456789abcdefghijklmnopqrstuvwxyz";
-	char* wstr=str;
-	int sign;
-	div_t res;
-
-	// Validate base
-	if (base<2 || base>35){ *wstr='\0'; return; }
-
-	// Take care of sign
-	if ((sign=value) < 0) value = -value;
-
-	// Conversion. Number is reversed.
-	do {
-		res = div(value,base);
-		*wstr++ = num[res.rem];
-	}while(value=res.quot);
-	if(sign<0) *wstr++='-';
-	*wstr='\0';
-
-	// Reverse string
-	strreverse(str,wstr-1);
-}
-
-void main()
-
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+void chk_label();
+void chk_opcode();
+void READ_LINE();
+struct optab
 {
-  char a[10],ad[10],label[10],opcode[10],operand[10],mnemonic[10],symbol[10];
-  int i,address,sa,code,add,len,actual_len,tcount=10;
-  FILE *fp1,*fp2,*fp3,*fp4,*fp5;
-  fp1=fopen("asmlist.dat","w");
-  fp2=fopen("symtab.dat","r");
-  fp3=fopen("intermediate.dat","r");
-  fp4=fopen("optab.dat","r");
-  fp5=fopen("out.dat","w");
-  fscanf(fp3,"%s%s%s",label,opcode,operand);
-  if(strcmp(opcode,"START")==0)
-  {
-    fprintf(fp1,"\t%s\t%s\t%s\n",label,opcode,operand);
-    fprintf(fp5, "H%6s%6s26",label,operand );
-    fscanf(fp3,"%d%s%s%s",&address,label,opcode,operand);
-    sa=address;
-  }
-  while(strcmp(opcode,"END")!=0)
-  {
-    if(strcmp(opcode,"BYTE")==0)
-    {
-      fprintf(fp1,"%d\t%s\t%s\t%s\t",address,label,opcode,operand);
-      len=strlen(operand);
-      actual_len=len-3;
-      for(i=2;i<(actual_len+2);i++)
-      {
-        itoa(operand[i],ad,16);
-        fprintf(fp1,"%s",ad);
-      }
-      fprintf(fp1,"\n");
-    }
-    else if(strcmp(opcode,"WORD")==0)
-    {
-      len=strlen(operand);
-      itoa(atoi(operand),a,10);
-      fprintf(fp1,"%d\t%s\t%s\t%s\t00000%s\n",address,label,opcode,operand,a);
-    }
-    else if((strcmp(opcode,"RESB")==0)||(strcmp(opcode,"RESW")==0))
-    {
-      fprintf(fp1,"%d\t%s\t%s\t%s\n",address,label,opcode,operand);
+  char code[10], objcode[10];
+} myoptab[3] = {
+    {"LDA", "00"},
+    {"JMP", "01"},
+    {"STA", "02"}};
 
+struct symtab
+{
+  char symbol[10];
+  int addr;
+} mysymtab[10];
+
+int startaddr, locctr, symcount = 0, length;
+char line[20], label[8], opcode[8], operand[8], programname[10];
+
+void PASS1()
+{
+  FILE *input, *inter;
+  input = fopen("input.txt", "r");
+  inter = fopen("inter.txt", "w");
+  printf("LOCATION LABEL\tOPERAND\tOPCODE\n");
+  printf("_____________________________________");
+  fgets(line, 20, input);
+
+  READ_LINE();
+
+  if (!strcmp(opcode, "START"))
+  {
+
+    startaddr = atoi(operand);
+    locctr = startaddr;
+    strcpy(programname, label);
+
+    fprintf(inter, "%s", line);
+    fgets(line, 20, input);
+  }
+  else
+  {
+    programname[0] = '\0';
+    startaddr = 0;
+    locctr = 0;
+  }
+  printf("\n %d\t %s\t%s\t %s", locctr, label, opcode, operand);
+
+  while (strcmp(line, "END") != 0)
+  {
+
+    READ_LINE();
+    printf("\n %d\t %s \t%s\t %s", locctr, label, opcode, operand);
+    if (label[0] != '\0')
+      chk_label();
+    chk_opcode();
+    fprintf(inter, "%s %s %s\n", label, opcode, operand);
+    fgets(line, 20, input);
+  }
+
+  printf("\n %d\t\t%s", locctr, line);
+  fprintf(inter, "%s", line);
+
+  fclose(inter);
+  fclose(input);
+}
+//=====================================================================================================================================
+void PASS2()
+{
+  FILE *inter, *output;
+  char record[30], part[6], value[5];
+  int currtxtlen = 0, foundopcode, foundoperand, chk, operandaddr, recaddr = 0;
+  inter = fopen("inter.txt", "r");
+  output = fopen("output.txt", "w");
+  fgets(line, 20, inter);
+
+  READ_LINE();
+  if (!strcmp(opcode, "START"))
+    fgets(line, 20, inter);
+  printf("\n\nCorresponding Object code is..\n");
+  printf("\nH^ %s ^ %d ^ %d ", programname, startaddr, length);
+  fprintf(output, "\nH^ %s ^ %d ^ %d ", programname, startaddr, length);
+  recaddr = startaddr;
+  record[0] = '\0';
+  while (strcmp(line, "END") != 0)
+  {
+    operandaddr = foundoperand = foundopcode = 0;
+    value[0] = part[0] = '\0';
+    READ_LINE();
+    for (chk = 0; chk < 3; chk++)
+    {
+      if (!strcmp(opcode, myoptab[chk].code))
+      {
+        foundopcode = 1;
+        strcpy(part, myoptab[chk].objcode);
+
+        if (operand[0] != '\0')
+        {
+          for (chk = 0; chk < symcount; chk++)
+
+            if (!strcmp(mysymtab[chk].symbol, operand))
+            {
+              itoa(mysymtab[chk].addr, value, 10);
+              strcat(part, value);
+              foundoperand = 1;
+            }
+          if (!foundoperand)
+            strcat(part, "err");
+        }
+      }
+    }
+    if (!foundopcode)
+    {
+      if (strcmp(opcode, "BYTE") == 0 || strcmp(opcode, "WORD") || strcmp(opcode, "RESB"))
+      {
+        strcat(part, operand);
+      }
+    }
+    if ((currtxtlen + strlen(part)) <= 8)
+    {
+      strcat(record, "^");
+      strcat(record, part);
+
+      currtxtlen += strlen(part);
     }
     else
     {
-      rewind(fp4);
-      fscanf(fp4,"%s%d",mnemonic,&code);
-      while(strcmp(opcode,mnemonic)!=0)
-      fscanf(fp4,"%s%d",mnemonic,&code);
-      if(strcmp(operand,"~")==0)
-      {
-        fprintf(fp1,"%d\t%s\t%s\t%s\t%d0000\n",address,label,opcode,operand,code);
-				if (tcount==10){
-						fprintf(fp5, "\nT%d%d%d0000",address,00,code );
-						tcount=0;
-				}else{
-						fprintf(fp5, "%d0000",code );
-						tcount++;
-				}
-
-      }
-      else
-      {
-        rewind(fp2);
-        fscanf(fp2,"%s%d",symbol,&add);
-        while(strcmp(operand,symbol)!=0)
-        {
-          fscanf(fp2,"%s%d",symbol,&add);
-        }
-        fprintf(fp1,"%d\t%s\t%s\t%s\t%d%d\n",address,label,opcode,operand,code,add);
-        //fprintf(fp5, "T%d%d%d%d\n",address,00,code,add );
-				if (tcount==10){
-						fprintf(fp5, "\nT%d%d%d%d",address,00,code,add );
-						tcount=0;
-				}else{
-						fprintf(fp5, "%d%d",code,add );
-						tcount++;
-				}
-      }
+      printf("\nT^ %d ^%d %s", recaddr, currtxtlen, record);
+      fprintf(output, "\nT^ %d ^%d %s", recaddr, currtxtlen, record);
+      recaddr += currtxtlen;
+      currtxtlen = strlen(part);
+      strcpy(record, part);
     }
-    fscanf(fp3,"%d%s%s%s",&address,label,opcode,operand);
+    fgets(line, 20, inter);
   }
-  fprintf(fp1,"%d\t%s\t%s\t%s\n",address,label,opcode,operand);
-  fprintf(fp5, "\nE%6d\n",sa );
-  printf("Finished");
-  fclose(fp1);
-  fclose(fp2);
-  fclose(fp3);
-  fclose(fp4);
-  fclose(fp5);
-  getchar();
+  printf("\nT^ %d ^%d %s", recaddr, currtxtlen, record);
+  fprintf(output, "\nT^ %d ^%d %s", recaddr, currtxtlen, record);
+  printf("\nE^ %d\n", startaddr);
+  fprintf(output, "\nE^ %d\n", startaddr);
+  fclose(inter);
+  fclose(output);
+}
+//=================================================
+
+void READ_LINE()
+{
+  char buff[8], word1[8], word2[8], word3[8];
+  int i, j = 0, count = 0;
+  label[0] = opcode[0] = operand[0] = word1[0] = word2[0] = word3[0] = '\0';
+  for (i = 0; line[i] != '\0'; i++)
+  {
+    if (line[i] != ' ')
+      buff[j++] = line[i];
+    else
+    {
+      buff[j] = '\0';
+      strcpy(word3, word2);
+      strcpy(word2, word1);
+      strcpy(word1, buff);
+      j = 0;
+      count++;
+    }
+  }
+  buff[j - 1] = '\0';
+  strcpy(word3, word2);
+  strcpy(word2, word1);
+  strcpy(word1, buff);
+  switch (count)
+  {
+  case 0:
+    strcpy(opcode, word1);
+    break;
+  case 1:
+  {
+    strcpy(opcode, word2);
+    strcpy(operand, word1);
+  }
+  break;
+  case 2:
+  {
+    strcpy(label, word3);
+    strcpy(opcode, word2);
+    strcpy(operand, word1);
+  }
+  break;
+  }
+}
+//======================================================
+void chk_label()
+{
+  int k, dupsym = 0;
+  for (k = 0; k < symcount; k++)
+    if (!strcmp(label, mysymtab[k].symbol))
+    {
+      mysymtab[k].addr = -1;
+      dupsym = 1;
+      break;
+    }
+  if (!dupsym)
+  {
+    strcpy(mysymtab[symcount].symbol, label);
+    mysymtab[symcount++].addr = locctr;
+  }
+}
+//  =====================================================
+void chk_opcode()
+{
+
+  int k = 0, found = 0;
+  for (k = 0; k < 3; k++)
+
+    if (!strcmp(opcode, myoptab[k].code))
+    {
+
+      locctr += 3;
+
+      found = 1;
+      break;
+    }
+  if (!found)
+  {
+    if (!strcmp(opcode, "WORD"))
+      locctr += 3;
+    else if (!strcmp(opcode, "RESW"))
+      locctr += (3 * atoi(operand));
+    else if (!strcmp(opcode, "RESB"))
+      locctr += atoi(operand);
+  }
+}
+
+//==================================================
+int main()
+{
+  PASS1();
+  length = locctr - startaddr;
+  PASS2();
+  return 0;
 }

@@ -2,7 +2,7 @@
 #include<stdlib.h>
 #include<string.h>
 #include<ctype.h>
- int isIdentifier (char a[])
+int isIdentifier (char a[])
 
 {
 
@@ -75,27 +75,28 @@ while((ch = fgetc(fp)) != EOF){
    if(isalnum(ch)){
    buffer[j++] = ch;
    }
-   else if((ch == ' ' || ch == '\n') && (j != 0)){
+   else if((ch == ' ' || ch == '\n') && (j != 0))
+   {
    buffer[j] = '\0';
    j = 0;
-     
+   if(strcmp(buffer, "main")==0)
+   {
+   	printf("%s is reserved keyword\n", buffer);
+   	continue;
+   }
    if(isKeyword(buffer) == 1){
-   		printf("%s is keyword\n", buffer);
-   		continue;
+   	printf("%s is keyword\n", buffer);
+   	continue;
    }
    if(isIdentifier(buffer)==1){
-   		printf("%s is identifier" , buffer);
-   		continue;
+   	printf("%s is identifier\n" , buffer);
+   	continue;
    }
    if(isIdentifier(buffer)==0){
-   			printf("%s is not identifier" , buffer);
-   		continue;
+   	printf("%s is not identifier\n" , buffer);
+   	continue;
    }
 }
-   	
-   	
-   
-  
 }
 fclose(fp);
 return 0;
