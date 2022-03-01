@@ -5,7 +5,6 @@ int main()
 {
     FILE * file;
     char path[100];
-
     char ch;
     int characters, words, lines;
     printf("Enter source file path: ");
@@ -18,7 +17,6 @@ int main()
 
         exit(EXIT_FAILURE);
     }
-
     characters = words = lines = 0;
     while ((ch = fgetc(file)) != EOF)
     {
@@ -29,18 +27,15 @@ int main()
         if (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\0')
             words++;
     }
-
     if (characters > 0)
     {
         words++;
         lines++;
     }
-
     printf("\n");
     printf("Total characters = %d\n", characters-1);
     printf("Total words      = %d\n", words);
     printf("Total lines      = %d\n", lines);
     fclose(file);
-
     return 0;
 }
